@@ -1,60 +1,100 @@
 1. Instalar BorgBackup
-|-> sudo apt install borgbackup.
-   
-2. Crear un repo de copias de seguridad cifrado en /tmp llamado `repobackup`
-|->  borg init encryption=contraseña /tmp/repobackup.
+   |-> sudo apt install borgbackup
+   |-> borg --version  # Verificar instalación
 
-3. Crear una primera copia de seguridad de un directorio en el sistema (la carpeta personal del usuario).
-|-> borg create /tmp/repobackup::copia1 /home/garperan.
+2. Crear un repositorio cifrado en `/tmp` llamado `repobackup`
+   |-> borg init --encryption=repokey /tmp/repobackup
+   |-> Introducir contraseña segura
 
-4. Verificar que la copia de seguridad se ha creado correctamente
-|-> borg list /tmp/repobackup::copia1 y borg info /tmp/repobackup::copia1.
+3. Crear una primera copia de seguridad del directorio personal
+   |-> borg create --progress /tmp/repobackup::copia1 /home/garperan
 
-5. Modificar archivos en el directorio original agregando y/o eliminando cosas
-|-> touch archivo_ejemplo.md o mkdir carpeta_ejemplo o rm archivo_ejemplo.
+4. Verificar la copia de seguridad
+   |-> borg list /tmp/repobackup
+   |-> borg info /tmp/repobackup::copia1
 
-6. Crear una segunda copia de seguridad del directorio original
-|-> borg create /tmp/repobackup::copia2 /home/garperan.
+5. Modificar archivos en el directorio original
+   |-> touch /home/garperan/archivo_ejemplo.md
+   |-> mkdir /home/garperan/carpeta_ejemplo
+   |-> rm /home/garperan/archivo_ejemplo.md
 
-7. Verificar que la segunda copia de seguridad se ha creado correctamente
-|-> borg list /tmp/repobackup::copia2 o borg info /tmp/repobackup::copia2
+6. Crear una segunda copia de seguridad
+   |-> borg create --progress /tmp/repobackup::copia2 /home/garperan
 
-8. Usar el comando `diff` para comparar las 2 copias de seguridad
-|-> borg diff /tmp/repobackup::copia1::copia2
+7. Verificar la segunda copia de seguridad
+   |-> borg list /tmp/repobackup
+   |-> borg info /tmp/repobackup::copia2
 
-9. Restaurar la primera copia de seguridad en un directorio diferente llamado `restored`
-|-> borg extract  /tmp/repobackup::copia1
+8. Comparar las dos copias de seguridad
+   |-> borg diff /tmp/repobackup::copia1 copia2
 
-> [!IMPORTANT]
-> Debemos ejecutar el comando en el directorio restored ya que Borg nos extrae los archivos en el directorio
-> donde nos encontramos
+9. Restaurar la primera copia de seguridad en un directorio `restored`
+   |-> mkdir -p /home/garperan/restored
+   |-> cd /home/garperan/restored
+   |-> borg extract /tmp/repobackup::copia1
 
-10. Verificar que la restauración se ha realizado correctamente
-|-> borg diff /home/garperan/restored o ls/tree /home/garperan/restored
+10. Verificar la restauración
+    |-> diff -r /home/garperan /home/garperan/restored
 
+### Copias de seguridad remotas (Modo Pull)
+1. Crear el repositorio remoto en `madrox`
+   |-> borg init --encryption=repokey /home/garperan/borgrepo
 
-### Copias de seguridad Remotas (Modo Pull)
+2. Realizar la copia de seguridad desde la máquina física
+   |-> borg create --progress --remote-path=borg1 <usuario>@<IP-de-madrox>:/home/garperan/borgrepo::copia1 /home/garperan
 
-Averigua cómo se usaría `borgbackup` para hacer copias de seguridad en
-un repositorio remoto, explicando en detalle cómo sería el procedimiento
-a medida que lo realizas. Los gráficos de más abajo muestran los dos
-modos de copia remota que puedes llevar a cabo, cuyos nombres dependen
-de dónde se encuentra ubicado el comando que realiza las copias
+3. Verificar las copias de seguridad en `madrox`
+   |-> borg list /home/garperan/borgrepo
 
-Utiliza `madrox` como máquina para alojar el repositorio remoto y haz
-una copia de alguna carpeta que tengas en tu máquina física. Recuerda
-que para poder conectar tu máquina física a `madrox` necesitarás que la
-red que comparten ambas máquinas se encuentre en modo `bridge`
-Finalmente, prueba a restaurar una de esas copias en la carpeta `/tmp`
-de tu máquina física
+4. Restaurar la copia desde `madrox` a la máquina física
+   |-> mkdir -p /tmp/restored
+   |-> borg extract --remote-path=borg1 <usuario>@<IP-de-madrox>:/home/garperan/borgrepo::copia1 /tmp/restored
 
-Usa `tmux` para dividir ahora la pantalla en tres paneles:
+#### Push Backup / Pull Restore
 
-- Izquierda: para explicar lo que estás haciendo mediante el comando
-  `nano -b0 borgbackup.md`, lo que te permitirá guardar tus explicaciones
-  en un fichero markdown
-- Derecha arriba: para la máquina de cuyos datos se quieren hacer copias
-- Derecha abajo: para la máquina en la que se quieren guardar las copias
+```asciiart
+              ┌────────────┐
+              │            │
+              │   madrox   │ repositorio
+              │            │
+              └───o──┬──▲──┘
+                  │  │  │
+                  │  │  │
+──────────────────┴──┼──┼────────────────o─────────────── virbr0
+                     │  │                │
+                     │  │  backup   ┌────┴────┐
+                     │  └───────────┤         │
+                     │              │   M.F.  │ datos a copiar/restaurar
+                     └─────────────►│         │ comando borg
+                       restore      └─────────┘
+```
+
+#### Pull Backup / Push Restore
+
+```asciiart
+              ┌────────────┐
+              │            │ repositorio
+              │   madrox   │ comando borg
+              │            │
+              └───o──┬──▲──┘
+                  │  │  │
+                  │  │  │
+──────────────────┴──┼──┼────────────────o─────────────── virbr0
+                     │  │                │
+                     │  │  backup   ┌────┴────┐
+                     │  └───────────┤         │
+                     │              │   M.F.  │ datos a copiar/restaurar
+                     └─────────────►│         │
+                       restore      └─────────┘
+```
+borg1 <usuario>@<IP-de-madrox>:/home/garperan/borgrepo::copia1 /home/garperan/borgrepo
+
+3. Verificamos las copias de seguridad en madrox
+|-> borg list /home/garperan/borgrepo
+
+4. Restauramos la copia desde madrox a la máquina física
+|-> borg extract --remote-path borg1 <usuario>@<IP-de-madrox>:/home/<usuario>/borgrepo::backup1  /tmp/restored
+
 
 #### Push Backup / Pull Restore
 
