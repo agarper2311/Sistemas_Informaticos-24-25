@@ -34,7 +34,7 @@
    |-> borg extract /tmp/repobackup::copia1
 
 10. Verificar la restauración
-    |-> diff -r /home/garperan /home/garperan/restored
+    |-> diff -r /home/garperan /home/garperan/restored/home/garperan
 
 ### Copias de seguridad remotas (Modo Pull)
 1. Crear el repositorio remoto en `madrox`
