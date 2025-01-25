@@ -26,7 +26,7 @@
    |-> borg info /tmp/repobackup::copia2
 
 8. Comparar las dos copias de seguridad
-   |-> borg diff /tmp/repobackup::copia1 copia2
+   |-> borg diff /tmp/repobackup::copia1 /tmp/repobackup::copia2
 
 9. Restaurar la primera copia de seguridad en un directorio `restored`
    |-> mkdir -p /home/garperan/restored
